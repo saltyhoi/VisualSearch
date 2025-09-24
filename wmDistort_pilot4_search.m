@@ -293,6 +293,11 @@ try
         % Convert target position to degrees for display
         target_deg = pix2deg(p.targ_coords{1}(t,:));
         p.targ_coords_deg{1}(t,:) = target_deg;
+
+        % Compute angle relative to origin (0,0)
+        angle_rad = atan2(targ_deg(2), targ_deg(1));    % y, x
+        angle_deg = rad2deg(angle_rad);  
+        p.targ_angs(t) = angle_deg;         % Store in targ_angs
         
         % First line: show target info
         fprintf('Trial %d — Target Rotation: %s | Target Position: [%.2f, %.2f] deg\n', ...
