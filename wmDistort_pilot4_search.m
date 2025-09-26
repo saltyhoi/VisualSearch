@@ -91,6 +91,7 @@ p.RT = nan(p.ntrials, 1);           % response time
 p.clickTime = nan(p.ntrials, 1);
 p.correct = nan(p.ntrials, 2);  % 2 columns: [correctLoc, correctRot] % correct (1) or incorrect (0)
 p.mouseTraj = cell(p.ntrials,1);   % Each trial: [time, x, y]
+p.angleDiff = nan(p.ntrials, 1);
 
 
 
@@ -284,7 +285,7 @@ try
 
 
         % Response stage (XDAT 4) ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ XDAT inside the function 
-        [clickPos, RT, clickTime, correctLoc, correctRot, responseRot, mouseTraj] = collectClickResponse(p, apertureMask, targetPos, p.center, win, p.response_dur, p.do_et, p.targ_rot_dir{t}, Freeviewing);
+        [clickPos, RT, clickTime, correctLoc, correctRot, responseRot, mouseTraj, angleDiff] = collectClickResponse(p, apertureMask, targetPos, p.center, win, p.response_dur, p.do_et, p.targ_rot_dir{t}, Freeviewing);
         p.mouseTraj{t} = mouseTraj; % Save trajectory
         p.rot_response{t} = responseRot; % Save actual rotation response
 
@@ -348,6 +349,7 @@ try
         p.correct(t, 1) = correctLoc;
         p.correct(t, 2) = correctRot;
         p.shapes_used{t} = shapeName;
+        p.angleDiff(t) = angleDiff;
 
         % Inter-trial interval stage (XDAT 6) ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
         if p.do_et == 1
@@ -523,7 +525,7 @@ function drawSearchItems(win, items, positions, angles, letter_size_px)
     end
 end
 
-function [clickPos, RT, clickTime, correctLoc, correctRot, responseRot, mouseTraj] = collectClickResponse( ...
+function [clickPos, RT, clickTime, correctLoc, correctRot, responseRot, mouseTraj, angleDiff] = collectClickResponse( ...
     p, apertureMask, targetPos, center, win, responseDur, do_et, targetRot, Freeviewing)
 
     % ---------- Outputs ----------
@@ -533,6 +535,7 @@ function [clickPos, RT, clickTime, correctLoc, correctRot, responseRot, mouseTra
     correctLoc = false;
     correctRot = false;
     mouseTraj = [];
+    angleDiff = NaN;
 
     % Helper to convert pixel coords to deg, screen-centered
     pix2deg = @(xpix, ypix) ([1, -1] .* ([xpix, ypix] - center)) / p.ppd;    
