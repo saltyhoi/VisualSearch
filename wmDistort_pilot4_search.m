@@ -295,7 +295,7 @@ try
         p.targ_coords_deg{1}(t,:) = target_deg;
 
         % Compute angle relative to origin (0,0)
-        angle_rad = atan2(targ_deg(2), targ_deg(1));    % y, x
+        angle_rad = atan2(target_deg(2), target_deg(1));    % y, x
         angle_deg = rad2deg(angle_rad);  
         p.targ_angs(t) = angle_deg;         % Store in targ_angs
         
