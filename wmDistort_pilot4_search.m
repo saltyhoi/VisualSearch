@@ -599,7 +599,7 @@ function [clickPos, RT, correctLoc, correctRot, responseRot, mouseTraj] = collec
         % Stop when participant clicks location
         if any(buttons)
             clickPos = pos_deg;
-            RT = GetSecs - Freeviewing;  % reaction time relative to free-viewing start
+            % RT = GetSecs - Freeviewing;  % reaction time relative to free-viewing start
 
             % Convert target to angle as well
             target_angle = pix2angle(targetPos(1), targetPos(2));
@@ -623,6 +623,7 @@ function [clickPos, RT, correctLoc, correctRot, responseRot, mouseTraj] = collec
             %         dist, clickPos(1), clickPos(2), click_angle, target_angle);
             break
         end
+        RT = GetSecs - Freeviewing;  % reaction time relative to free-viewing start
     end
 
     HideCursor(win);
