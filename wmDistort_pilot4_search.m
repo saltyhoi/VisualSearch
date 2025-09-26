@@ -88,6 +88,7 @@ p.conditions = cell(p.ntrials, 1);
 p.shapes_used = cell(p.ntrials, 1);
 p.clickPos = nan(p.ntrials, 2);     % mouse click X, Y
 p.RT = nan(p.ntrials, 1);           % response time
+p.clickTime = nan(p.ntrials, 1);
 p.correct = nan(p.ntrials, 2);  % 2 columns: [correctLoc, correctRot] % correct (1) or incorrect (0)
 p.mouseTraj = cell(p.ntrials,1);   % Each trial: [time, x, y]
 
@@ -283,7 +284,7 @@ try
 
 
         % Response stage (XDAT 4) ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ XDAT inside the function 
-        [clickPos, RT, correctLoc, correctRot, responseRot, mouseTraj] = collectClickResponse(p, apertureMask, targetPos, p.center, win, p.response_dur, p.do_et, p.targ_rot_dir{t}, Freeviewing);
+        [clickPos, RT, clickTime, correctLoc, correctRot, responseRot, mouseTraj] = collectClickResponse(p, apertureMask, targetPos, p.center, win, p.response_dur, p.do_et, p.targ_rot_dir{t}, Freeviewing);
         p.mouseTraj{t} = mouseTraj; % Save trajectory
         p.rot_response{t} = responseRot; % Save actual rotation response
 
@@ -343,6 +344,7 @@ try
         % Store trial results
         p.clickPos(t, :) = clickPos;   % e.g., [x y]
         p.RT(t) = RT;
+        p.clickTime(t) = clickTime;
         p.correct(t, 1) = correctLoc;
         p.correct(t, 2) = correctRot;
         p.shapes_used{t} = shapeName;
@@ -352,7 +354,7 @@ try
             Eyelink('Message','xDAT %i',6);
         end
         timedWaitWithEscape(p, p.itis(t));
-        disp(RT)
+        fprintf('Reaction time is %.3f seconds and click time was %.3f seconds.\n', RT, clickTime);
         prevRT = RT;
     end
 
@@ -521,12 +523,13 @@ function drawSearchItems(win, items, positions, angles, letter_size_px)
     end
 end
 
-function [clickPos, RT, correctLoc, correctRot, responseRot, mouseTraj] = collectClickResponse( ...
+function [clickPos, RT, clickTime, correctLoc, correctRot, responseRot, mouseTraj] = collectClickResponse( ...
     p, apertureMask, targetPos, center, win, responseDur, do_et, targetRot, Freeviewing)
 
     % ---------- Outputs ----------
     clickPos = [NaN, NaN];
     RT = NaN;
+    clickTime = NaN;
     correctLoc = false;
     correctRot = false;
     mouseTraj = [];
@@ -587,7 +590,6 @@ function [clickPos, RT, correctLoc, correctRot, responseRot, mouseTraj] = collec
         
         % Convert to angle relative to center
         click_angle = pix2angle(x, y);
-
         tRel = GetSecs - trajStartTime;
 
         % Log sample only if mouse moved at least 0.1 deg (avoid initial zeros)
@@ -598,6 +600,7 @@ function [clickPos, RT, correctLoc, correctRot, responseRot, mouseTraj] = collec
 
         % Stop when participant clicks location
         if any(buttons)
+            clickTime = tRel;
             clickPos = pos_deg;
             % RT = GetSecs - Freeviewing;  % reaction time relative to free-viewing start
 
