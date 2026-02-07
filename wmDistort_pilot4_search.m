@@ -1,4 +1,4 @@
-function wmDistort_pilot4_search()
+ function wmDistort_pilot4_search()
 Screen('Preference', 'SkipSyncTests', 1);
 % Create input dialog for subject number, run number, and eye tracker condition
 prompt = {'Enter Subject Number (e.g., sub001):                                                            .',
@@ -7,7 +7,7 @@ prompt = {'Enter Subject Number (e.g., sub001):                                 
    'Response Mode (0 = Behavioral room, 1 = fMRI room):'};
 dlg_title = 'Subject & Run Info Input';
 num_lines = 1;
-default_input = {'sub999', '1', '1', '0'};  % Default: no eye tracker, mouse response
+default_input = {'sub999', '1', '0', '0'};  % Default: no eye tracker, mouse response
 % Get user input via dialog box
 user_input = inputdlg(prompt, dlg_title, num_lines, default_input);
 % Extract the inputs from the user input dialog
@@ -28,8 +28,8 @@ p.response_mode = str2double(user_input{4});
 disp(['Running experiment for  Subject: ', p.subj, ', Run: ', num2str(p.run)]);
 disp(['Eye Tracker Condition: ', num2str(p.do_et)]);  % Shows 0 or 1
 % data directory 2 above the current directory
-p.filename = sprintf('../../data/VisualSearch_data/%s_r%02.f_%s_%s.mat',p.subj,p.run,p.expt_name,datestr(now,30));
-% p.filename = sprintf('../../data/wmDistort_data/%s_r%02.f_%s.mat',p.subj,p.run,p.expt_name);
+% p.filename = sprintf('../../data/VisualSearch_data/%s_r%02.f_%s_%s.mat',p.subj,p.run,p.expt_name,datestr(now,30));
+p.filename = sprintf('../../data/wmDistort_data/%s_r%02.f_%s.mat',p.subj,p.run,p.expt_name);
 if p.do_et == 1
    p.eyedatafile = sprintf('%s_r%02.f',p.subj(1:min(length(p.subj),3)),p.run);
 end
@@ -37,7 +37,7 @@ p.rng_seed = cputime*1000;
 rng(p.rng_seed);
 KbName('UnifyKeyNames');
 % Basic experiment params
-p.ntrials = 2;
+p.ntrials = 32;
 searchSetSize = 200; % We want the RT to be around 3-10 seconds
 p.shapes = {'circle', 'square', 'wide_rect', 'tall_rect'};
 shapeMap = containers.Map({'circle', 'square', 'tall_rect', 'wide_rect'}, [1, 2, 3, 4]);
@@ -80,7 +80,7 @@ p.angleDiff = nan(p.ntrials, 1);
 p.fixation_dur = 2;
 p.aperture_dur = 2;
 p.task_dur = 0.5;
-p.response_dur = 1.5;
+p.response_dur = 100;
 p.feedback_dur = 0.8;
 p.iti_range = [2 4]; % randomly choose between those
 p.itis = linspace(p.iti_range(1),p.iti_range(2),p.ntrials);
@@ -213,7 +213,7 @@ try
 %         end
        % ----------------------------- IMPORTANT ------------------------------------------------
        Freeviewing = GetSecs;
-       drawSearchItems(win, itemList, itemPositions, itemAngles, p.letter_size_px);
+       drawSearchItems(win, itemList, itemPositions, itemAngles, p.letter_size_px,p);
        % ----------------------------- IMPORTANT ------------------------------------------------
        % Save target coordinates (x, y) as row vector
        p.targ_coords{1}(t, :) = itemPositions(:, targetIdx)';
@@ -322,7 +322,7 @@ catch ME
    % Save data on error or escape
 %     save(p.filename, 'p');
    Screen('CloseAll');
-   ShowCursor;
+   ShowCursor('Arrow');
    if ~strcmp(ME.message, 'Experiment terminated by user (ESC key).')
        rethrow(ME);
    end
@@ -340,7 +340,7 @@ if p.do_et == 1
    Eyelink('ShutDown');
 end
 Screen('CloseAll');
-ShowCursor;
+ShowCursor('Arrow');
 end
 % ------ end of stim code (below is just functions ------ %
 function rect = getApertureRect(shapeName, p)
@@ -437,7 +437,7 @@ function [items, positions, angles] = generateSearchItemsGrid(nItems, candidateP
    items = items(shuffleOrder);
    angles = angles(shuffleOrder);
 end
-function drawSearchItems(win, items, positions, angles, letter_size_px)
+function drawSearchItems(win, items, positions, angles, letter_size_px,p)
    Screen('TextFont', win, 'Arial');
    Screen('TextSize', win, letter_size_px);
    col = [0 0 0];
@@ -449,13 +449,38 @@ function drawSearchItems(win, items, positions, angles, letter_size_px)
        else
            col = [0 0 0];   % Black color for T (distractors)
        end
-  
+
        Screen('glPushMatrix', win);
        Screen('glTranslate', win, positions(1,i), positions(2,i), 0);
        Screen('glRotate', win, angles(i), 0, 0, 1);
        Screen('DrawText', win, items(i), -8, -12, col); % adjust offset as needed
        Screen('glPopMatrix', win);
    end
+    % for i = 1:numel(items)
+    %     % Set color based on item type
+    %     if items(i) == 'L'
+    %         col = [255 0 0]; % Red for L (target)
+    %     else
+    %         col = [0 0 0];   % Black for T (distractors)
+    %     end
+    % 
+    %     % Apply rotation and position
+    %     Screen('glPushMatrix', win);
+    %     Screen('glTranslate', win, positions(1,i), positions(2,i), 0);
+    %     Screen('glRotate', win, angles(i), 0, 0, 1);
+    % 
+    %     % Draw the letter
+    %     Screen('DrawText', win, items(i), -8, -12, col);
+    % 
+    %     % 🔳 Optional: Draw hitbox for the target “L”
+    %     if items(i) == 'L'
+    %         boxSize = 3*p.ppd;  %letter_size_px You can adjust this
+    %         hitboxRect = [-boxSize/2, -boxSize/2, boxSize/2, boxSize/2];
+    %         Screen('FrameRect', win, [0 255 0], hitboxRect, 2);  % Green hitbox outline
+    %     end
+    % 
+    %     Screen('glPopMatrix', win);
+    % end
 end
 function [clickPos, RT, clickTime, correctLoc, correctRot, responseRot, mouseTraj, angleDiff] = collectClickResponse( ...
    p, apertureMask, targetPos, center, win, responseDur, do_et, targetRot, Freeviewing)
@@ -501,7 +526,7 @@ function [clickPos, RT, clickTime, correctLoc, correctRot, responseRot, mouseTra
    if do_et == 1
        Eyelink('Message','xDAT %i',4);
    end
-   ShowCursor(win);
+   ShowCursor('Arrow',win);
    SetMouse(center(1), center(2), win);
    % Start time for trajectory and RT
    trajStartTime = GetSecs;
@@ -769,7 +794,7 @@ function responseRot = flickerSearchItems(p, win, items, positions, angles, do_e
        Screen('FillRect', win, bg_color);
        drawApertureFilled(win, shapeName, apertureRect);
        % Draw all visible items at once
-       drawSearchItems(win, items(visible), positions(:, visible), angles(visible), letter_size_px);
+       drawSearchItems(win, items(visible), positions(:, visible), angles(visible), letter_size_px,p);
        vbl = Screen('Flip', win, vbl + 0.5 * ifi);
        checkForEscape(p);
        [~, ~, buttons] = GetMouse(win);
@@ -784,6 +809,6 @@ function responseRot = flickerSearchItems(p, win, items, positions, angles, do_e
    end
    Screen('FillRect', win, bg_color);
    drawApertureFilled(win, shapeName, apertureRect);
-   drawSearchItems(win, items, positions, angles, letter_size_px);
+   drawSearchItems(win, items, positions, angles, letter_size_px,p);
 end
 
