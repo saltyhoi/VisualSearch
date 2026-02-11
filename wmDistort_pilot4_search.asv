@@ -264,24 +264,22 @@ try
         targetIdx = find(itemList == 'L');  % find index of target 'L'
         targetPos = itemPositions(:, targetIdx);  % << ADD THIS LINE
 
-%         if t > 1
-%             if prevRT < 2  % RT from previous trial
-%                 Freeviewg = GetSecs;
-%                 flickerSearchItems(p, w, itemList, itemPositions, itemAngles, p.do_et, p.bg_color, shapeName, apertureRect, p.letter_size_px);
-%             else
-%                 Freeviewg = GetSecs;
-%                 drawSearchItems(w, itemList, itemPositions, itemAngles, p.letter_size_px);
-%             end
-%         else
-%             % First trial — default to static display
-%             Freeviewg = GetSecs;
-%             drawSearchItems(w, itemList, itemPositions, itemAngles, p.letter_size_px);
-%         end
+        if t > 1
+            if prevRT < 2  % RT from previous trial
+                Freeviewg = GetSecs;
+                flickerSearchItems(p, w, itemList, itemPositions, itemAngles, p.do_et, p.bg_color, shapeName, apertureRect, p.letter_size_px);
+            else
+                Freeviewg = GetSecs;
+                drawSearchItems(w, itemList, itemPositions, itemAngles, p.letter_size_px);
+            end
+        else
+            % First trial — default to static display
+            Freeviewg = GetSecs;
+            drawSearchItems(w, itemList, itemPositions, itemAngles, p.letter_size_px);
+        end
 
         % ----------------------------- IMPORTANT ------------------------------------------------
-        Freeviewg = GetSecs;
-        drawSearchItems(w, itemList, itemPositions, itemAngles, p.letter_size_px);
-%         drawSearchItems(w, itemList, itemPositions, itemAngles); 
+        % drawSearchItems(w, itemList, itemPositions, itemAngles); 
         % ----------------------------- IMPORTANT ------------------------------------------------
 
 
@@ -302,7 +300,6 @@ try
         end
         % Flip to show stimuli and record flip time
         vbl = Screen('Flip', w);
-
 
 
         % Response stage (XDAT 4) ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ XDAT inside the function 
@@ -533,7 +530,7 @@ function drawSearchItems(w, items, positions, angles, letter_size_px)
     for i = 1:numel(items)
         % Set color based on item type
         if items(i) == 'L'
-            col = [0 0 0]; % Red color for T (target)
+            col = [255 0 0]; % Red color for T (target)
         else
             col = [0 0 0];   % Black color for L (distractors)
         end
@@ -598,8 +595,9 @@ function [clickPos, RT, clickTime, correctLoc, correctRot, responseRot, mouseTra
         Eyelink('Message','xDAT %i',4);
     end
 
+
+    ShowCursor(1,w);
 %     ShowCursor(1);
-    ShowCursor(2,w); % Using Hand as the cursor shape, color gets weird with crosshair (1)
     SetMouse(center(1), center(2), w);
 
 
