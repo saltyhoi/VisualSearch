@@ -2,31 +2,34 @@ function wmDistort_pilot4_search()
 Screen('Preference', 'SkipSyncTests', 1);
 
 % Create input dialog for subject number, run number, and eye tracker condition
-prompt = {'Enter Subject Number (e.g., sub001):.'; 
-    'Enter Run Number (e.g., 1):'; 
-    'Eye Tracker Condition (0 = Off, 1 = On):';
-    'Display Mode (0 = Behavioral room, 1 = fMRI room):'};
+prompt = {'Enter Subject Number (e.g., sub099):                                                            .', 
+    'Enter Run Number (e.g., 1):', 
+    'Eye Tracker Condition (0 = Off, 1 = On):',
+    'Response Mode (0 = Behavioral room, 1 = fMRI room):'};
 dlg_title = 'Subject & Run Info Input';
 num_lines = 1; 
-default_input = {'sub777', '5', '1', '0'};  % Default: no eye tracker, mouse response
+default_input = {'sub999', '1', '1', '0'};  % Default: no eye tracker, mouse response
 
 % Get user input via dialog box
 user_input = inputdlg(prompt, dlg_title, num_lines, default_input);
 
-p.debug = false;    % true = show labels/overlays | false = real experiment
-p.expt_name = 'wmDistort_pilot4';
-p.subj = strtrim(user_input{1}); % Subject number
-p.run = str2double(strtrim(user_input{2}));  % Run number  , convert to double 
-p.do_et = str2double(strtrim(user_input{3}));   % Eye tracker condition (0 or 1)
-p.display = str2double(user_input{4});
-
+% Extract the inputs from the user input dialog
+subj = strtrim(user_input{1});       % Subject number
+run  = str2double(strtrim(user_input{2}));  % Run number  , convert to double
+et   = str2double(strtrim(user_input{3}));   % Eye tracker condition (0 or 1)
 
 % Check if eye tracker condition is valid
-if p.do_et ~= 0 && p.do_et ~= 1
+if et ~= 0 && et ~= 1
     error('Invalid input for Eye Tracker condition. Must be 0 or 1.');
 end
 
 %  -------------------------------------------------------------------------- %
+p.expt_name = 'wmDistort_pilot4';
+p.subj = subj;
+p.run = run; 
+p.do_et =et;
+p.response_mode = str2double(user_input{4});
+
 % Display the experiment settings for confirmation
 disp(['Running experiment for  Subject: ', p.subj, ', Run: ', num2str(p.run)]);
 disp(['Eye Tracker Condition: ', num2str(p.do_et)]);  % Shows 0 or 1
@@ -48,63 +51,29 @@ p.ntrials = 32;
 searchSetSize = 200; % We want the RT to be around 3-10 seconds
 p.shapes = {'circle', 'square', 'wide_rect', 'tall_rect'};
 shapeMap = containers.Map({'circle', 'square', 'tall_rect', 'wide_rect'}, [1, 2, 3, 4]);
-
-p.aperture_size = 15; % [or max ecc?]
+s = max(Screen('Screens'));
 p.fix_size_in  = 0.075; % radius, deg
 p.fix_size_out = 0.30; % radius, deg
 p.fix_pen = 1.5;
-p.fix_color = [75 75 75]; % red fixation color, change if you want
-p.bg_color = [130 130 130]; % background color matching your screen background
+p.fix_color = [130 130 130]; % red fixation color, change if you want
+p.bg_color = [20 20 20]; % background color matching your screen background
 
 
 
 % ------- Screen setup, optics --------- %
-% including monitor info
-if p.display == 0 % behavior room
-    p.screen_height_cm = 30;
-    p.viewing_distance_cm = 52;
-elseif p.display == 1 % fMRI room
-    p.screen_height_cm = 35.5;
-    p.viewing_distance_cm = 110;
-end
-
-% open a screen, to get the resolution
-s = max(Screen('Screens'));
-HideCursor;
-[w, p.scr_rect] = Screen('OpenWindow',s,[0 0 0]); 
-Screen('BlendFunction', w, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+% Setup screen & parameters
+[win, p.scr_rect] = Screen('OpenWindow', s, [0 0 0]);
+HideCursor();
+p.screen_height = 30; % cm, in the experiment room
+p.viewing_distance = 56; % cm, in the experiment room (inside lab)
+Screen('BlendFunction', win, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 Screen('Preference','TextRenderer',1);
-p.ifi = Screen('GetFlipInterval',w);
-[xc, yc] = RectCenter(p.scr_rect);
-p.center = [xc yc];
-p.screen_height_px = RectHeight(p.scr_rect);
-
-p.ppd = p.screen_height_px / (2*atan2d(p.screen_height_cm/2, p.viewing_distance_cm));
+p.ifi = Screen('GetFlipInterval',win);
+p.center = p.scr_rect([3 4])/2;
+p.ppd = p.scr_rect(4)/(2*atan2d(p.screen_height/2,p.viewing_distance));
 p.letter_size_px = round(0.74 * p.ppd);
 p.halfLetter = round(p.letter_size_px / 2); %variable required to make buffer distance from aperture bounary
 
-p.aperture_rect = CenterRectOnPoint([0 0 2 2]*p.ppd*p.aperture_size,p.center(1),p.center(2));
-p.fix_rect_out  = CenterRectOnPoint([0 0 2 2] * p.ppd  * p.fix_size_out,p.center(1),p.center(2));
-p.fix_rect_in   = CenterRectOnPoint([0 0 2 2] * p.ppd  * p.fix_size_in, p.center(1),p.center(2));
-p.screen_width_px  = RectWidth(p.scr_rect);
-p.screen_height_px = RectHeight(p.scr_rect);
-
-% Set aperture size based on the screen height
-phi = 0.618; % the golden ratio for rectangle;
-p.H = p.screen_height_px;  % wdow height in pixels
-aperture_diameter = ((1+phi) * p.aperture_size) * p.ppd;
-
-% Define pixel rects (keep same “phi” shape logic, but now scaled in visual angle)
-aperture_circle_px    = [0 0 aperture_diameter aperture_diameter];
-aperture_square_px    = aperture_circle_px;
-aperture_wide_rect_px = [0 0 p.H p.H*phi];
-aperture_tall_rect_px = [0 0 p.H*phi p.H];
-
-% Center the apertures
-p.aperture_circle    = CenterRectOnPoint(aperture_circle_px(1:4),    p.center(1), p.center(2));
-p.aperture_square    = CenterRectOnPoint(aperture_square_px(1:4),    p.center(1), p.center(2));
-p.aperture_wide_rect = CenterRectOnPoint(aperture_wide_rect_px(1:4), p.center(1), p.center(2));
-p.aperture_tall_rect = CenterRectOnPoint(aperture_tall_rect_px(1:4), p.center(1), p.center(2));
 
 
 
@@ -137,11 +106,14 @@ p.iti_range = [2 4]; % randomly choose between those
 p.itis = linspace(p.iti_range(1),p.iti_range(2),p.ntrials);
 p.itis = p.itis(randperm(p.ntrials));
 
+p.screen_height = p.scr_rect(4);
+p.screen_width = p.scr_rect(3);
+
 
 % --------- eyetracking ----------- %
 if p.do_et == 1
     
-    el=EyelinkInitDefaults(w);
+    el=EyelinkInitDefaults(win);
     
     el.backgroundcolour=p.bg_color(1);  % TODO: fix this?
     el.calibrationtargetcolour=p.fix_color(1);
@@ -175,14 +147,25 @@ if p.do_et == 1
 end
 
 % Show instruction screen
-showstructions(w, p);
-p.diameter_length = ((1+phi) * p.aperture_size) * p.ppd;
+showInstructions(win, p);
+% Aperture sizes from your info
+p.diameter_length = (p.screen_height + p.screen_height*0.618)/2;
+aperture_diameter = p.diameter_length;
+aperture_tall_rect = [0 0 p.screen_height * 0.618 p.screen_height]; 
+aperture_wide_rect = [0 0 p.screen_height p.screen_height * 0.618]; 
+aperture_square = [0 0 p.diameter_length p.diameter_length];
+
+% Centered apertures
+p.aperture_circle = CenterRectOnPoint([0 0 aperture_diameter aperture_diameter], p.center(1), p.center(2));
+p.aperture_wide_rect = CenterRectOnPoint(aperture_wide_rect, p.center(1), p.center(2));
+p.aperture_tall_rect = CenterRectOnPoint(aperture_tall_rect, p.center(1), p.center(2));
+p.aperture_square = CenterRectOnPoint(aperture_square, p.center(1), p.center(2));
 
 
 % % Data to store
 % results = struct('trial', {}, 'shape', {}, 'clickPos', {}, 'RT', {}, 'correct', {});
 
-Screen('Flip',w);
+Screen('Flip',win);
 
 if p.do_et == 1
     Eyelink('Message','xDAT %i', 10);
@@ -215,6 +198,7 @@ try
 
         % Get aperture rect for shape (returns [left top right bottom])
         apertureRect = getApertureRect(shapeName, p);
+
         % Create aperture mask (logical matrix, size of screen)
         apertureMask = createApertureMask(shapeName, p);
 
@@ -232,8 +216,8 @@ try
         end
 
         % Show fixation cross
-        drawFixation(w, p);
-        Screen('Flip', w);
+        drawFixation(win, p);
+        Screen('Flip', win);
         timedWaitWithEscape(p, p.fixation_dur);
 
         % Aperture-Display stage (XDAT 2) ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -242,18 +226,13 @@ try
         end
 
         % Show aperture + fixation stage (pause for ~1 second)
-        showApertureWithFixation(w, shapeName, apertureRect, p);
-        if isfield(p,'debug') && p.debug
-            DrawFormattedText(w, shapeName, 'center', apertureRect(2)-30, [255 0 0]);
-            disp(['DEBUG — Trial ' num2str(t) ' | Shape: ' shapeName]);
-            Screen('Flip', w);
-        end
+        showApertureWithFixation(win, shapeName, apertureRect, p);
         timedWaitWithEscape(p, p.aperture_dur);
 
         % Clear screen with background color
-        Screen('FillRect', w, p.bg_color);
+        Screen('FillRect', win, p.bg_color);
         % Draw the aperture filled shape
-        drawApertureFilled(w, shapeName, apertureRect);
+        drawApertureFilled(win, shapeName, apertureRect);
         % Now draw search items inside aperture
         % [itemList, itemPositions, itemAngles] = generateSearchItems(searchSetSize, apertureMask, p.center);
         gridSize = 50;
@@ -264,22 +243,23 @@ try
         targetIdx = find(itemList == 'L');  % find index of target 'L'
         targetPos = itemPositions(:, targetIdx);  % << ADD THIS LINE
 
-        if t > 1
-            if prevRT < 2  % RT from previous trial
-                Freeviewg = GetSecs;
-                flickerSearchItems(p, w, itemList, itemPositions, itemAngles, p.do_et, p.bg_color, shapeName, apertureRect, p.letter_size_px);
-            else
-                Freeviewg = GetSecs;
-                drawSearchItems(w, itemList, itemPositions, itemAngles, p.letter_size_px);
-            end
-        else
-            % First trial — default to static display
-            Freeviewg = GetSecs;
-            drawSearchItems(w, itemList, itemPositions, itemAngles, p.letter_size_px);
-        end
+%         if t > 1
+%             if prevRT < 2  % RT from previous trial
+%                 Freeviewing = GetSecs;
+%                 flickerSearchItems(p, win, itemList, itemPositions, itemAngles, p.do_et, p.bg_color, shapeName, apertureRect, p.letter_size_px);
+%             else
+%                 Freeviewing = GetSecs;
+%                 drawSearchItems(win, itemList, itemPositions, itemAngles, p.letter_size_px);
+%             end
+%         else
+%             % First trial — default to static display
+%             Freeviewing = GetSecs;
+%             drawSearchItems(win, itemList, itemPositions, itemAngles, p.letter_size_px);
+%         end
 
         % ----------------------------- IMPORTANT ------------------------------------------------
-        % drawSearchItems(w, itemList, itemPositions, itemAngles); 
+        Freeviewing = GetSecs;
+        drawSearchItems(win, itemList, itemPositions, itemAngles, p.letter_size_px);
         % ----------------------------- IMPORTANT ------------------------------------------------
 
 
@@ -299,11 +279,11 @@ try
             Eyelink('Message','xDAT %i',3);
         end
         % Flip to show stimuli and record flip time
-        vbl = Screen('Flip', w);
+        vbl = Screen('Flip', win);
 
 
         % Response stage (XDAT 4) ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ XDAT inside the function 
-        [clickPos, RT, clickTime, correctLoc, correctRot, responseRot, mouseTraj, angleDiff] = collectClickResponse(p, apertureMask, targetPos, p.center, w, p.response_dur, p.do_et, p.targ_rot_dir{t}, Freeviewg);
+        [clickPos, RT, clickTime, correctLoc, correctRot, responseRot, mouseTraj, angleDiff] = collectClickResponse(p, apertureMask, targetPos, p.center, win, p.response_dur, p.do_et, p.targ_rot_dir{t}, Freeviewing);
         p.mouseTraj{t} = mouseTraj; % Save trajectory
         p.rot_response{t} = responseRot; % Save actual rotation response
 
@@ -349,7 +329,7 @@ try
         % Combine feedback messages (can be displayed together or separately)
         feedbackText = sprintf('%s\n\n\n%s', feedbackLoc, feedbackRot);
 
-        DrawFormattedText(w, feedbackText, 'center', 'center', [255 255 255]);
+        DrawFormattedText(win, feedbackText, 'center', 'center', [255 255 255]);
 
         if p.do_et == 1
             Eyelink('Message','xDAT %i',5);
@@ -357,7 +337,7 @@ try
             Eyelink('Message','TarY %s', num2str(p.targ_coords{1}(t,2)));
         end
 
-        Screen('Flip', w);
+        Screen('Flip', win);
         timedWaitWithEscape(p, p.feedback_dur);
 
         % Store trial results
@@ -379,11 +359,11 @@ try
     end
 
     % End of experiment message
-    DrawFormattedText(w, 'All done!\n\nThank you!', 'center', 'center', [255 255 255]);
-    Screen('Flip', w);
+    DrawFormattedText(win, 'All done!\n\nThank you!', 'center', 'center', [255 255 255]);
+    Screen('Flip', win);
     % KbWait;
     while true
-        checkForEscape(p);  % allows termination during end screen
+%         checkForEscape(p);  % allows termination during end screen
         [keyIsDown, ~, keyCode] = KbCheck;
         if keyIsDown
             break;
@@ -394,8 +374,20 @@ try
     save(p.filename, 'p');
 
 catch ME
+    % END OF EXPERIMENT - TEXT
+    if p.do_et == 1
+        Eyelink('Message','xDAT %i',11);
+        Eyelink('StopRecording');
+        Eyelink('ShutDown');
+    end
+
+    % Save experiment data
+    if isfield(p,'filename')
+        save(p.filename, 'p');
+    end
+
     % Save data on error or escape
-    save(p.filename, 'p');
+%     save(p.filename, 'p');
     Screen('CloseAll');
     ShowCursor;
     if ~strcmp(ME.message, 'Experiment terminated by user (ESC key).')
@@ -405,9 +397,9 @@ catch ME
 end
 
 % END OF EXPERIMENT - TEXT
-if p.do_et == 1
-    Eyelink('Message','xDAT %i',11);
-end
+% if p.do_et == 1
+%     Eyelink('Message','xDAT %i',11);
+% end
 
 if p.do_et == 1
     Eyelink('StopRecording');
@@ -451,12 +443,12 @@ function apertureMask = createApertureMask(shapeName, p)
             half_side = p.diameter_length / 2;
             apertureMask = abs(xGrid - cx) <= half_side & abs(yGrid - cy) <= half_side;
         case 'wide_rect'
-            half_width = p.H / 2;
-            half_height = (p.H * 0.618) / 2;
+            half_width = p.screen_height / 2;
+            half_height = (p.screen_height * 0.618) / 2;
             apertureMask = abs(xGrid - cx) <= half_width & abs(yGrid - cy) <= half_height;
         case 'tall_rect'
-            half_width = (p.H * 0.618) / 2;
-            half_height = p.H / 2;
+            half_width = (p.screen_height * 0.618) / 2;
+            half_height = p.screen_height / 2;
             apertureMask = abs(xGrid - cx) <= half_width & abs(yGrid - cy) <= half_height;
         otherwise
             error('Unknown shape');
@@ -475,13 +467,13 @@ function drawFixation(w, p)
 end
 
 
-function drawApertureFilled(w, shapeName, apertureRect)
+function drawApertureFilled(win, shapeName, apertureRect)
     grey = [130 130 130];
     switch shapeName
         case 'circle'
-            Screen('FillOval', w, grey, apertureRect);  % Proper circle
+            Screen('FillOval', win, grey, apertureRect);  % Proper circle
         case {'square', 'wide_rect', 'tall_rect'}
-            Screen('FillRect', w, grey, apertureRect);  % Rectangular shapes
+            Screen('FillRect', win, grey, apertureRect);  % Rectangular shapes
     end
 end
 
@@ -490,6 +482,10 @@ function [items, positions, angles] = generateSearchItemsGrid(nItems, candidateP
     % candidatePositions: Nx2 array of [x,y] candidate points
     
     % Select target position randomly (could add near/far logic here)
+    if isempty(candidatePositions)
+        error('No valid candidate positions generated for the current aperture!');
+    end
+    disp(size(candidatePositions));
     targetIdx = randi(size(candidatePositions,1));
     targetPos = candidatePositions(targetIdx, :)';
     
@@ -522,29 +518,29 @@ function [items, positions, angles] = generateSearchItemsGrid(nItems, candidateP
 end
 
 
-function drawSearchItems(w, items, positions, angles, letter_size_px)
-    Screen('TextFont', w, 'Arial');
-    Screen('TextSize', w, letter_size_px);
+function drawSearchItems(win, items, positions, angles, letter_size_px)
+    Screen('TextFont', win, 'Arial');
+    Screen('TextSize', win, letter_size_px);
     col = [0 0 0];
     
     for i = 1:numel(items)
         % Set color based on item type
         if items(i) == 'L'
-            col = [255 0 0]; % Red color for T (target)
+            col = [0 0 0]; % Red color for L (target)
         else
-            col = [0 0 0];   % Black color for L (distractors)
+            col = [0 0 0];   % Black color for T (distractors)
         end
     
-        Screen('glPushMatrix', w);
-        Screen('glTranslate', w, positions(1,i), positions(2,i), 0);
-        Screen('glRotate', w, angles(i), 0, 0, 1);
-        Screen('DrawText', w, items(i), -8, -12, col); % adjust offset as needed
-        Screen('glPopMatrix', w);
+        Screen('glPushMatrix', win);
+        Screen('glTranslate', win, positions(1,i), positions(2,i), 0);
+        Screen('glRotate', win, angles(i), 0, 0, 1);
+        Screen('DrawText', win, items(i), -8, -12, col); % adjust offset as needed
+        Screen('glPopMatrix', win);
     end
 end
 
 function [clickPos, RT, clickTime, correctLoc, correctRot, responseRot, mouseTraj, angleDiff] = collectClickResponse( ...
-    p, apertureMask, targetPos, center, w, responseDur, do_et, targetRot, Freeviewg)
+    p, apertureMask, targetPos, center, win, responseDur, do_et, targetRot, Freeviewing)
 
     % ---------- Outputs ----------
     clickPos = [NaN, NaN];
@@ -564,7 +560,7 @@ function [clickPos, RT, clickTime, correctLoc, correctRot, responseRot, mouseTra
     %% ---------- PHASE 1: ROTATION DECISION ----------
     responseRot = 'x';
     while true
-        [x, y, buttons] = GetMouse(w);
+        [x, y, buttons] = GetMouse(win);
         checkForEscape(p);
 
         if any(buttons)
@@ -584,7 +580,7 @@ function [clickPos, RT, clickTime, correctLoc, correctRot, responseRot, mouseTra
 
     % Wait until rotation button is released (no logging yet)
     while true
-        [~, ~, buttons] = GetMouse(w);
+        [~, ~, buttons] = GetMouse(win);
         if ~any(buttons)
             break
         end
@@ -594,20 +590,16 @@ function [clickPos, RT, clickTime, correctLoc, correctRot, responseRot, mouseTra
     if do_et == 1
         Eyelink('Message','xDAT %i',4);
     end
-    ShowCursor(1,w);
-%     ShowCursor(1);
-    SetMouse(center(1), center(2), w);
+    ShowCursor(win);
+    SetMouse(center(1), center(2), win);
 
     % Start time for trajectory and RT
     trajStartTime = GetSecs;
     mouseTraj = nan(round(responseDur * 120), 4);  % preallocate (assuming 120 Hz) [time, x_deg, y_deg, angle]
     frameCount = 1;
-    prevPos = [NaN NaN];
-
-
 
     while (GetSecs - trajStartTime) < responseDur
-        [x, y, buttons] = GetMouse(w);
+        [x, y, buttons] = GetMouse(win);
         checkForEscape(p);
 
         % Convert to deg
@@ -617,38 +609,17 @@ function [clickPos, RT, clickTime, correctLoc, correctRot, responseRot, mouseTra
         click_angle = pix2angle(x, y);
         tRel = GetSecs - trajStartTime;
 
-        % % Log sample only if mouse moved at least 0.1 deg (avoid initial zeros)
-        % if hypot(pos_deg(1), pos_deg(2)) > 0.1 && frameCount <= size(mouseTraj,1)
-        %     mouseTraj(frameCount,:) = [tRel, pos_deg(1), pos_deg(2), click_angle];
-        %     frameCount = frameCount + 1;
-        % end
-% ----------------------------------------------------------------------------------
-        % movedEnough = isnan(prevPos(1)) || ...
-        %     hypot(pos_deg(1) - prevPos(1), pos_deg(2) - prevPos(2)) > 0.1;
-        % 
-        % if movedEnough && frameCount <= size(mouseTraj,1)
-        % 
-        %     mouseTraj(frameCount,:) = [tRel, pos_deg(1), pos_deg(2), click_angle];
-        % 
-        %     prevPos = pos_deg;
-        %     frameCount = frameCount + 1;
-        % 
-        % end
-
+        % Log sample only if mouse moved at least 0.1 deg (avoid initial zeros)
+        if hypot(pos_deg(1), pos_deg(2)) > 0.001 && frameCount <= size(mouseTraj,1)
+            mouseTraj(frameCount,:) = [tRel, pos_deg(1), pos_deg(2), click_angle];
+            frameCount = frameCount + 1;
+        end
 
         % Stop when participant clicks location
         if any(buttons)
             clickTime = tRel;
             clickPos = pos_deg;
-
-            % Always store the click sample (even if it didn't move enough)
-            if frameCount <= size(mouseTraj,1)
-                mouseTraj(frameCount,:) = [tRel, pos_deg(1), pos_deg(2), click_angle];
-                frameCount = frameCount + 1;
-            else
-                % If buffer already full, overwrite last row with the click sample
-                mouseTraj(end,:) = [tRel, pos_deg(1), pos_deg(2), click_angle];
-            end
+            % RT = GetSecs - Freeviewing;  % reaction time relative to free-viewing start
 
             % Convert target to angle as well
             target_angle = pix2angle(targetPos(1), targetPos(2));
@@ -672,40 +643,29 @@ function [clickPos, RT, clickTime, correctLoc, correctRot, responseRot, mouseTra
             %         dist, clickPos(1), clickPos(2), click_angle, target_angle);
             break
         end
-
-         % --- 2) Otherwise, store only if moved enough from the last STORED position ---
-        movedEnough = isnan(prevPos(1)) || ...
-            hypot(pos_deg(1) - prevPos(1), pos_deg(2) - prevPos(2)) > 0.1;
-    
-        if movedEnough && frameCount <= size(mouseTraj,1)
-            mouseTraj(frameCount,:) = [tRel, pos_deg(1), pos_deg(2), click_angle];
-            prevPos = pos_deg;
-            frameCount = frameCount + 1;
-        end
-        
-        RT = GetSecs - Freeviewg;  % reaction time relative to free-viewg start
+        RT = GetSecs - Freeviewing;  % reaction time relative to free-viewing start
     end
 
-    HideCursor(w);
+    HideCursor(win);
 
     % Trim unused rows
     mouseTraj = mouseTraj(1:frameCount-1,:);
 end
 
 
-% function [clickPos, RT, correctLoc, correctRot] = collectClickResponse(p, apertureMask, targetPos, center, w, responseDur, do_et, targetRot, Freeviewg)
+% function [clickPos, RT, correctLoc, correctRot] = collectClickResponse(p, apertureMask, targetPos, center, win, responseDur, do_et, targetRot, Freeviewing)
 %     % Initialize outputs with default values
 %     clickPos = [NaN, NaN];
 %     RT = NaN;
 %     correctLoc = false;
 %     correctRot = false;
 % 
-%     % ----------- PHASE 1: ROTATION RESPONSE (Free Viewg) -----------
+%     % ----------- PHASE 1: ROTATION RESPONSE (Free Viewing) -----------
 %     disp('Waiting for participant to indicate they found the target and its rotation...');
 % 
 %     responseRot = 'x';  % Default invalid
 %     while true
-%         [~, ~, buttons] = GetMouse(w);
+%         [~, ~, buttons] = GetMouse(win);
 %         checkForEscape(p);
 % 
 %         if any(buttons)
@@ -728,7 +688,7 @@ end
 % 
 %     % Wait until button is released
 %     while true
-%         [~, ~, buttons] = GetMouse(w);
+%         [~, ~, buttons] = GetMouse(win);
 %         if ~any(buttons)
 %             break;
 %         end
@@ -740,20 +700,20 @@ end
 %         Eyelink('Message','xDAT %i',4);
 %     end
 % 
-%     ShowCursor(w);
-%     SetMouse(center(1), center(2), w);
+%     ShowCursor(win);
+%     SetMouse(center(1), center(2), win);
 % 
 %     disp('Cursor shown. Please click on the target location...');
 %     startTime = GetSecs;
 % 
 %     while (GetSecs - startTime) < responseDur
-%         [x, y, buttons] = GetMouse(w);
+%         [x, y, buttons] = GetMouse(win);
 %         checkForEscape(p);
 % 
 %         if any(buttons)
 %             clickPos = [x, y];
 %             % RT = GetSecs - startTime; % measuring from click to click
-%             RT = GetSecs - Freeviewg;
+%             RT = GetSecs - Freeviewing;
 % 
 %             % Location accuracy
 %             dist = sqrt((x - targetPos(1))^2 + (y - targetPos(2))^2);
@@ -766,7 +726,7 @@ end
 %         WaitSecs(0.01);
 %     end
 % 
-%     HideCursor(w);
+%     HideCursor(win);
 % end
 
 function inside = isInsideAperture(x, y, apertureMask)
@@ -799,20 +759,20 @@ function fits = isLetterFullyInside(x, y, apertureMask, halfLetter)
 end
 
 
-function showstructions(w, p)
+function showInstructions(win, p)
     % Draw fixation with your custom style
-    Screen('DrawDots', w, [0;0], p.fix_size_out*p.ppd*2 + p.fix_pen, p.fix_color, p.center, 2);
-    Screen('DrawDots', w, [0;0], p.fix_size_out*p.ppd*2 - p.fix_pen, p.bg_color, p.center, 2);
-    Screen('DrawDots', w, [0;0], p.fix_size_in*p.ppd*2, p.fix_color, p.center, 2);
+    Screen('DrawDots', win, [0;0], p.fix_size_out*p.ppd*2 + p.fix_pen, p.fix_color, p.center, 2);
+    Screen('DrawDots', win, [0;0], p.fix_size_out*p.ppd*2 - p.fix_pen, p.bg_color, p.center, 2);
+    Screen('DrawDots', win, [0;0], p.fix_size_in*p.ppd*2, p.fix_color, p.center, 2);
     
     % Draw instructions text
     instructions = ['Try to find the letter "L" among "T"s.\n\n' ...
                     'Click on the "L" as quickly and accurately as possible.\n\n' ...
                     'Press SPACE to start.'];
-    DrawFormattedText(w, instructions, 'center', p.center(2) + 100, [255 255 255]);
+    DrawFormattedText(win, instructions, 'center', p.center(2) + 100, [255 255 255]);
     
     % Show it on screen
-    Screen('Flip', w);
+    Screen('Flip', win);
     
     % Wait for space key press
     while true
@@ -825,29 +785,28 @@ function showstructions(w, p)
     end
 end
 
-function showApertureWithFixation(w, shapeName, apertureRect, p)
+function showApertureWithFixation(win, shapeName, apertureRect, p)
     % Draw gray background and aperture shape
-    Screen('FillRect', w, p.bg_color);
-    drawApertureFilled(w, shapeName, apertureRect);
+    Screen('FillRect', win, p.bg_color);
+    drawApertureFilled(win, shapeName, apertureRect);
     % Draw fixation point on top
     % Outer dot (thicker, fix_color)
-    % Screen('DrawDots', w, [0;0], p.fix_size_out * p.ppd * 2 + p.fix_pen, p.bg_color, p.center, 2);
-    Screen('DrawDots', w, [0;0], p.fix_size_out * p.ppd * 2 + p.fix_pen, [50 50 50], p.center, 2);
+    % Screen('DrawDots', win, [0;0], p.fix_size_out * p.ppd * 2 + p.fix_pen, p.bg_color, p.center, 2);
+    Screen('DrawDots', win, [0;0], p.fix_size_out * p.ppd * 2 + p.fix_pen, [50 50 50], p.center, 2);
     % Inner dot (background color, slightly smaller)
-    Screen('DrawDots', w, [0;0], p.fix_size_out * p.ppd * 2 - p.fix_pen, p.fix_color, p.center, 2);
+    Screen('DrawDots', win, [0;0], p.fix_size_out * p.ppd * 2 - p.fix_pen, p.fix_color, p.center, 2);
     % Innermost dot (fix_color, smaller)
-    % Screen('DrawDots', w, [0;0], p.fix_size_in * p.ppd * 2, p.bg_color, p.center, 2);    % Flip to screen
-    Screen('DrawDots', w, [0;0], p.fix_size_in * p.ppd * 2, [50 50 50], p.center, 2);    % Flip to screen
-    Screen('Flip', w);
+    % Screen('DrawDots', win, [0;0], p.fix_size_in * p.ppd * 2, p.bg_color, p.center, 2);    % Flip to screen
+    Screen('DrawDots', win, [0;0], p.fix_size_in * p.ppd * 2, [50 50 50], p.center, 2);    % Flip to screen
+    Screen('Flip', win);
 end
 
 function checkForEscape(p)
     [keyIsDown, ~, keyCode] = KbCheck;
-    
     if keyIsDown && keyCode(KbName('ESCAPE'))
         % Close all screens and show cursor
         Screen('CloseAll');
-        ShowCursor();
+        ShowCursor;
 
         % Stop Eyelink recording if active
         if p.do_et == 1
@@ -910,8 +869,8 @@ function candidatePositions = generateCandidatePositions(apertureMask, p, gridSi
 end
 
 
-function responseRot = flickerSearchItems(p, w, items, positions, angles, do_et, bg_color, shapeName, apertureRect, letter_size_px)
-    ifi = Screen('GetFlipInterval', w);
+function responseRot = flickerSearchItems(p, win, items, positions, angles, do_et, bg_color, shapeName, apertureRect, letter_size_px)
+    ifi = Screen('GetFlipInterval', win);
     nItems = numel(items);
 
     flickerFreqs = 0.5 + 1.5 * rand(1, nItems);
@@ -922,7 +881,7 @@ function responseRot = flickerSearchItems(p, w, items, positions, angles, do_et,
 
     responseRot = '';  % Initialize output
 
-    vbl = Screen('Flip', w);
+    vbl = Screen('Flip', win);
 
     while true
         for i = 1:nItems
@@ -932,17 +891,17 @@ function responseRot = flickerSearchItems(p, w, items, positions, angles, do_et,
                 framesSinceToggle(i) = 0;
             end
         end
-        Screen('FillRect', w, bg_color);
-        drawApertureFilled(w, shapeName, apertureRect);
+        Screen('FillRect', win, bg_color);
+        drawApertureFilled(win, shapeName, apertureRect);
 
         % Draw all visible items at once
-        drawSearchItems(w, items(visible), positions(:, visible), angles(visible), letter_size_px);
+        drawSearchItems(win, items(visible), positions(:, visible), angles(visible), letter_size_px);
 
-        vbl = Screen('Flip', w, vbl + 0.5 * ifi);
+        vbl = Screen('Flip', win, vbl + 0.5 * ifi);
 
         checkForEscape(p);
 
-        [~, ~, buttons] = GetMouse(w);
+        [~, ~, buttons] = GetMouse(win);
         if buttons(1)
             responseRot = 'l';
             break;
@@ -954,8 +913,8 @@ function responseRot = flickerSearchItems(p, w, items, positions, angles, do_et,
         WaitSecs(0.001);
     end
 
-    Screen('FillRect', w, bg_color);
-    drawApertureFilled(w, shapeName, apertureRect);
-    drawSearchItems(w, items, positions, angles, letter_size_px);
+    Screen('FillRect', win, bg_color);
+    drawApertureFilled(win, shapeName, apertureRect);
+    drawSearchItems(win, items, positions, angles, letter_size_px);
 
 end
